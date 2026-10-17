@@ -10,7 +10,14 @@ app.use(cors());
 app.use(express.json());
 // Solo se sirve /public (antes se exponía todo el proyecto, incluido server.js)
 app.use(express.static(path.join(__dirname, "public")));
-
+["get", "post", "patch", "delete"].forEach(m => {
+  const orig = app[m].bind(app);
+  app[m] = (p, ...hs) => orig(p, ...hs.map(f => (req, res, next) =>
+    Promise.resolve(f(req, res, next)).catch(e => {
+      console.log("❌", e.message);
+      res.status(500).json({ error: String(e.message).slice(0, 300) });
+    })));
+});
 const SECRET = process.env.JWT_SECRET || "cambia-este-secreto";
 
 mongoose.connect(process.env.MONGODB_URI)
@@ -80,7 +87,7 @@ app.post("/login", async (req, res) => {
 
 // ---------- TICKETS ----------
 app.get("/tickets", auth, async (req, res) => {
-  res.json(await Ticket.find().sort({ fecha: -1 }));
+res.json((await Ticket.find()).sort((a, b) => b.fecha - a.fecha));
 });
 
 app.post("/tickets", auth, async (req, res) => {
@@ -105,7 +112,7 @@ app.delete("/tickets/:id", auth, async (req, res) => {
 
 // ---------- TAREAS ----------
 app.get("/tickets/:id/tareas", auth, async (req, res) => {
-  res.json(await Tarea.find({ ticket: req.params.id }).sort({ fecha: 1 }));
+  res.json((await Tarea.find({ ticket: req.params.id })).sort((a, b) => a.fecha - b.fecha));
 });
 
 app.post("/tickets/:id/tareas", auth, async (req, res) => {
@@ -124,7 +131,7 @@ app.delete("/tareas/:id", auth, async (req, res) => {
 
 // ---------- COMENTARIOS (chat por ticket) ----------
 app.get("/tickets/:id/mensajes", auth, async (req, res) => {
-  res.json(await Mensaje.find({ ticket: req.params.id }).sort({ fecha: 1 }));
+  res.json((await Mensaje.find({ ticket: req.params.id })).sort((a, b) => a.fecha - b.fecha));
 });
 
 app.post("/tickets/:id/mensajes", auth, async (req, res) => {

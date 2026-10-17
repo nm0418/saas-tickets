@@ -64,8 +64,10 @@ async function api(url, method = "GET", body) {
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
     body: body ? JSON.stringify(body) : undefined
   });
-  if (res.status === 401 && token) { location.reload(); }
-  return res.json();
+   if (res.status === 401 && token) { location.reload(); }
+  const d = await res.json();
+  if (!res.ok) { alert(d.error || "Error"); throw new Error(d.error); }
+  return d;
 }
 
 async function login() {
